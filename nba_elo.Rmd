@@ -1,0 +1,60 @@
+---
+title: "nba_elo"
+author: "evan_anderson"
+date: "2/5/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+theme_set(theme_light())
+
+elo <- read_csv("nba_elo.csv")
+
+team_one <- elo %>% 
+  mutate(opponent = team2,
+         win = if_else(score1 > score2, 1, 0),
+         matchup = paste(team1, "-", team2)) %>%
+  select("team" = team1, opponent, matchup, date:playoff, win, "elo_post" = elo1_post, "pts_scored" = score1, "pts_allowed" = score2)
+
+team_two <- elo %>% 
+  mutate(opponent = team1,
+         win = if_else(score1 < score2, 1, 0),
+         matchup = paste(team1, "-", team2)) %>%
+  select("team" = team2, opponent, matchup, date:playoff, win, "elo_post" = elo2_post, "pts_scored" = score2, "pts_allowed" = score1)
+
+twentieth <- rbind(team_one, team_two) %>% 
+  filter(season < 2000)
+
+twentyfirst <- rbind(team_one, team_two) %>% 
+  filter(season >= 2000)
+
+twentieth$date <- as.Date(format(as.Date(twentieth$date,format="%m/%d/%y"), "19%y%m%d"), "%Y%m%d")
+twentyfirst$date <- as.Date(twentyfirst$date, "%m/%d/%y")
+
+games <- rbind(twentieth, twentyfirst) %>% 
+  arrange(date)
+
+write_csv(games, "elo_long.csv")
+```
+
+```{r}
+rolled <- read_csv("rolled_elo.csv")
+
+rolled$rolled_elo <- rolled$elo_post
+
+rolled <- select(rolled, team, date, rolled_elo)
+
+games <- left_join(games, rolled, by = c("team", "date")) %>% 
+  drop_na()
+```
+
+```{r}
+
+rolled %>% 
+  filter(team %in% c("BOS", "LAL")) %>% 
+  ggplot(aes(date, rolled_elo)) +
+  geom_line(aes(group = team, color = team), alpha = 0.9) +
+  ylim(1100, 1900)
+```
+
